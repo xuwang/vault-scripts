@@ -31,9 +31,9 @@ function abort() {
 # Main
 ######
 
-if [ -z "$1" ]
+if [[ -z "$1" ]] || [[ "$1" =~ ^- ]]
 then
-    abort "Error: Vault KV root path is required."
+    abort ""
 else
     root=$1
     root=${root%/}  # Remove trailing slash if any. Will add it back later
