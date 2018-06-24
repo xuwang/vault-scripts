@@ -2,7 +2,7 @@
 #
 # List all kv path recursively from a given path
 # Usage:
-#   vault-list-recurse <path>
+#   ./vault-list-tree.sh <path>
 
 export VAULT_ADDR=${VAULT_ADDR:-http://127.0.0.1:8200}
 
@@ -23,7 +23,7 @@ function list() {
 
 function abort() {
     echo "$1"
-    echo && echo "Usage: vault-list-recurse <path>" && echo
+    echo && echo "Usage: $0 <path>" && echo
     exit 1
 }
 
