@@ -1,6 +1,6 @@
 #!/bin/bash -e
 #
-# List all kv path recusivily from a give path
+# List all kv path recusivily from a given path
 # Usage:
 #   vault-list-recurse <path>
 
@@ -39,10 +39,19 @@ else
     root=${root%/}  # Remove trailing slash if any. Will add it back later
 fi 
 
-# If Vault version is v0.10.x, use vault kv list command
+if ! vault status &> /dev/null
+then
+    abort "Unable to check $VAULT_ADDR status. Please set correct VAULT_ADDR variable."
+fi
+
+# Test kv1 or kv2 backend
 vault_list="vault list"
-if vault -version | grep -q v0.10 ; then
-  vault_list="vault kv list"
+if ! vault list $root  &> /tmp/error
+then
+    abort "Error: $(cat /tmp/error)."
+elif vault list -format=json $root | grep -q -i warning
+then
+    vault_list="vault kv list"
 fi
 
 if $vault_list $root &> /tmp/error
