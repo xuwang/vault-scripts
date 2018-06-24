@@ -46,9 +46,9 @@ fi
 
 # Test kv1 or kv2 backend
 vault_list="vault list"
-if ! vault list $root  &> /tmp/error
+if ! msg=$(vault list $root 2>&1)
 then
-    abort "Error: $(cat /tmp/error)."
+    abort "Error: $msg."
 elif vault list -format=json $root | grep -q -i warning
 then
     vault_list="vault kv list"
