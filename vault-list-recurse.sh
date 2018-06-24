@@ -54,9 +54,9 @@ then
     vault_list="vault kv list"
 fi
 
-if $vault_list $root &> /tmp/error
+if msg=$($vault_list $root 2>&1)
 then
     list $root/
 else
-    abort "Error: $(cat /tmp/error)."
+    abort "Error: $msg."
 fi
