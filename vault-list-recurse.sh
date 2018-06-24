@@ -1,6 +1,6 @@
 #!/bin/bash -e
 #
-# List all kv path recusivily from a given path
+# List all kv path recursively from a given path
 # Usage:
 #   vault-list-recurse <path>
 
@@ -39,9 +39,9 @@ else
     root=${root%/}  # Remove trailing slash if any. Will add it back later
 fi 
 
-if ! vault status &> /dev/null
+if ! msg=$(vault status 2>&1)
 then
-    abort "Unable to check $VAULT_ADDR status. Please set correct VAULT_ADDR variable."
+    abort "$msg."
 fi
 
 # Test kv1 or kv2 backend
