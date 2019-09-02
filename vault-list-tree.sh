@@ -2,7 +2,7 @@
 #
 # List all kv path recursively from a given path
 # Usage:
-#   ./vault-list-tree.sh <path>
+#   $0 <path>
 
 export VAULT_ADDR=${VAULT_ADDR:-http://127.0.0.1:8200}
 
@@ -44,15 +44,8 @@ then
     abort "$msg."
 fi
 
-# Test kv1 or kv2 backend
-vault_list="vault list"
-if ! msg=$(vault list $root 2>&1)
-then
-    abort "Error: $msg."
-elif vault list -format=json $root | grep -q -i warning
-then
-    vault_list="vault kv list"
-fi
+# For kv2 backend only
+vault_list="vault kv list"
 
 if msg=$($vault_list $root 2>&1)
 then
