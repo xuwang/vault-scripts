@@ -21,58 +21,54 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
 
-# List all kv path recursively from a given path
+
 # Usage:
-#   $0 <path>
+#   vault-list-users.sh [<userid>]
 
-export VAULT_ADDR=${VAULT_ADDR:-http://127.0.0.1:8200}
+user=$1
+tmpfile=$(mktemp)
 
-function get_children() {
-    if children=$( $vault_list -format=json $1 2>/dev/null)
-    then
-        echo $children | jq -r '.[]'
+function list_aliases() {
+  vault list -format json  identity/entity-alias/id  | jq -r '.[]' > $tmpfile
+}
+
+function list_all_users() {
+  for i in `cat $tmpfile`
+  do
+    vault read -format=json identity/entity-alias/id/$i  | jq -r '.data.name'
+  done
+}
+
+function get_user() {
+  for i in `cat $tmpfile`
+  do
+    vault read -format=json identity/entity-alias/id/$i  | \
+        jq -r ".data | select(.name==\"$user\")" > $tmpfile.$user
+    if [ -s "$tmpfile.$user" ]; then
+      cat $tmpfile.$user
+      break
     fi
+  done
 }
 
-function list() {
-    echo $1
-    for child in $(get_children $1)
-    do
-        list "${1}${child}"
-    done
-}
+# MAIN
 
-function abort() {
-    echo "$1"
-    echo && echo "Usage: $0 <path>" && echo
-    exit 1
-}
-
-######
-# Main
-######
-
-if [[ -z "$1" ]] || [[ "$1" =~ ^- ]]
-then
-    abort ""
-else
-    root=$1
-    root=${root%/}  # Remove trailing slash if any. Will add it back later
-fi 
-
-if ! msg=$(vault status 2>&1)
-then
-    abort "$msg."
+if vault token lookup > /dev/null 2>&1 ; then
+  admin=$(vault token lookup -format=json | jq -r '.data.display_name')
+  echo "Using $admin token to lookup vault users."
+else 
+  echo "Valid vault token is required. Please run vault login."
+  exit 1
 fi
 
-# For kv2 backend only
-vault_list="vault kv list"
+list_aliases
 
-if msg=$($vault_list $root 2>&1)
-then
-    list $root/
+if [ ! -z "$user" ]; then
+  get_user
 else
-    abort "Error: $msg."
+  list_all_users
 fi
+
+rm -rf $tmpfile $tmpfile.$user
+ 
