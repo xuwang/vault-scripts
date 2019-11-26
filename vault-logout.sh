@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 # MIT License
 # 
@@ -21,56 +21,18 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-# Usage:
-#   vault-list-users.sh [<userid>]
+# Revoke login token and all its children
+# and cleanup local cache
 
-# include functions
 THIS_DIR=$(dirname "$0")
-source $THIS_DIR/functions.sh
 
-user=$1
-tmpfile=$(mktemp)
+set -u
+export VAULT_ADDR=${VAULT_ADDR}
+VAULT_CACHE=${VAULT_CACHE:-$HOME/.vault-local}
 
-function list_aliases() {
-  vault list -format json  identity/entity-alias/id  | jq -r '.[]' > $tmpfile
-}
+echo "Logout ${VAULT_ADDR}"
+vault token revoke -self &> /dev/null
+rm -f ${HOME}/.vault-token
 
-function list_all_users() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | jq -r '.data.name'
-  done
-}
-
-function get_user() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | \
-        jq -r ".data | select(.name==\"$user\")" > $tmpfile.$user
-    if [ -s "$tmpfile.$user" ]; then
-      cat $tmpfile.$user
-      break
-    fi
-  done
-}
-
-# MAIN
-
-if vault token lookup > /dev/null 2>&1 ; then
-  admin=$(vault token lookup -format=json | jq -r '.data.display_name')
-  echo "Using $admin token to lookup vault users."
-else 
-  echo "Valid vault token is required. Please run vault login."
-  exit 1
-fi
-
-list_aliases
-
-if [ ! -z "$user" ]; then
-  get_user
-else
-  list_all_users
-fi
-
-rm -rf $tmpfile $tmpfile.$user
- 
+# Cleanup local cache
+rm -rf ${VAULT_CACHE}

@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 # MIT License
 # 
@@ -21,56 +21,30 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-# Usage:
-#   vault-list-users.sh [<userid>]
+THIS_DIR=$(dirname "$0")
 
 # include functions
-THIS_DIR=$(dirname "$0")
 source $THIS_DIR/functions.sh
 
-user=$1
-tmpfile=$(mktemp)
+vault_info() {
+    export VAULT_ADDR=${VAULT_ADDR}
+    VAULT_AUTH_METHOD=${VAULT_AUTH_METHOD:-ldap}
+    SEC_PATH=${SEC_PATH:-auth/token/lookup-self}
 
-function list_aliases() {
-  vault list -format json  identity/entity-alias/id  | jq -r '.[]' > $tmpfile
-}
-
-function list_all_users() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | jq -r '.data.name'
-  done
-}
-
-function get_user() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | \
-        jq -r ".data | select(.name==\"$user\")" > $tmpfile.$user
-    if [ -s "$tmpfile.$user" ]; then
-      cat $tmpfile.$user
-      break
+    echo "VAULT SERVER: $VAULT_ADDR"
+    # seal status (0 unsealed, 2 sealed, 1 error)
+    vault status
+    [[ $? -eq 1 ]] && die "Error checking vault status."
+    if vault-list.sh ${SEC_PATH} 2>&1 >/dev/null | grep 'missing client token' 2>&1 >/dev/null
+    then
+        echo "You are not logged in VAULT"
+    elif vault-list.sh ${SEC_PATH} 2>&1 >/dev/null | grep 'permission denied' 2>&1 >/dev/null
+    then
+        echo "You are logged in VAULT but you don't have permissions to access ${SEC_PATH}"
+    else
+        echo "You are logged in VAULT and has the access to ${SEC_PATH}"
+        vault read auth/token/lookup-self
     fi
-  done
 }
 
-# MAIN
-
-if vault token lookup > /dev/null 2>&1 ; then
-  admin=$(vault token lookup -format=json | jq -r '.data.display_name')
-  echo "Using $admin token to lookup vault users."
-else 
-  echo "Valid vault token is required. Please run vault login."
-  exit 1
-fi
-
-list_aliases
-
-if [ ! -z "$user" ]; then
-  get_user
-else
-  list_all_users
-fi
-
-rm -rf $tmpfile $tmpfile.$user
- 
+vault_info

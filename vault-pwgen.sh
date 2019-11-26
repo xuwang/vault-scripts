@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 # MIT License
 # 
@@ -21,56 +21,20 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-# Usage:
-#   vault-list-users.sh [<userid>]
 
-# include functions
-THIS_DIR=$(dirname "$0")
-source $THIS_DIR/functions.sh
+if [ -z "$1" ]; then
+    echo "Usage: $0 <vault-secret-path> [<password-length>]"
+    echo "You must have the write privilege to <vault-secret-path>"
+    exit 1
+fi
 
-user=$1
-tmpfile=$(mktemp)
+length=${2:-20}
 
-function list_aliases() {
-  vault list -format json  identity/entity-alias/id  | jq -r '.[]' > $tmpfile
-}
-
-function list_all_users() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | jq -r '.data.name'
-  done
-}
-
-function get_user() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | \
-        jq -r ".data | select(.name==\"$user\")" > $tmpfile.$user
-    if [ -s "$tmpfile.$user" ]; then
-      cat $tmpfile.$user
-      break
-    fi
-  done
-}
-
-# MAIN
-
-if vault token lookup > /dev/null 2>&1 ; then
-  admin=$(vault token lookup -format=json | jq -r '.data.display_name')
-  echo "Using $admin token to lookup vault users."
+if vault-read.sh $1 &> /dev/null
+then 
+    echo "ERROR: $1 has value."
 else 
-  echo "Valid vault token is required. Please run vault login."
-  exit 1
+    echo Generate a new password and save to the $1
+    pwd=$(pwgen $length 1 | tr -d '\n')
+    vault-write.sh $1 $pwd
 fi
-
-list_aliases
-
-if [ ! -z "$user" ]; then
-  get_user
-else
-  list_all_users
-fi
-
-rm -rf $tmpfile $tmpfile.$user
- 

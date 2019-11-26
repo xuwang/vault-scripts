@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 # MIT License
 # 
@@ -22,55 +22,41 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # Usage:
-#   vault-list-users.sh [<userid>]
-
-# include functions
-THIS_DIR=$(dirname "$0")
-source $THIS_DIR/functions.sh
-
-user=$1
-tmpfile=$(mktemp)
-
-function list_aliases() {
-  vault list -format json  identity/entity-alias/id  | jq -r '.[]' > $tmpfile
-}
-
-function list_all_users() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | jq -r '.data.name'
-  done
-}
-
-function get_user() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | \
-        jq -r ".data | select(.name==\"$user\")" > $tmpfile.$user
-    if [ -s "$tmpfile.$user" ]; then
-      cat $tmpfile.$user
-      break
-    fi
-  done
-}
-
-# MAIN
-
-if vault token lookup > /dev/null 2>&1 ; then
-  admin=$(vault token lookup -format=json | jq -r '.data.display_name')
-  echo "Using $admin token to lookup vault users."
-else 
-  echo "Valid vault token is required. Please run vault login."
-  exit 1
-fi
-
-list_aliases
-
-if [ ! -z "$user" ]; then
-  get_user
-else
-  list_all_users
-fi
-
-rm -rf $tmpfile $tmpfile.$user
+#   vault-write <path> [<secret vaule> | @<secret file>]
+#
+# The script will write a secret object with two field: format and value.
+# "format" can be text or binary based on the input data. If the data is binary, the code will
+# base64 encode it and store in vault in "value" field.
+#
+# See vault-read.sh to read back data. 
  
+THIS_DIR=$(dirname "$0")
+
+set -u
+VAULT_ADDR=${VAULT_ADDR:-https}
+path="$1"
+input="$2"
+
+if ! vault --version | grep 'v1.' &> /dev/null
+then
+    (>&2 echo "The vault version is too old, please upgrade the vault cmd.")
+    exit 1
+fi
+
+
+if [[ "$input" =~ ^@ ]];
+then
+    # if the data is in a file
+    src=$(echo $2 | cut -c 2-)
+    if file -b --mime-encoding $src | grep -s binary > /dev/null
+    then
+        # if data is binary, base64 encode it and set format=base64
+        cat $src | base64 | vault kv put $path value=- format="base64"
+    else
+        # otherwise set format=text
+        cat $src | vault kv put $path value=- format="text"
+    fi
+else
+    vault kv put $path value="$2" format="text"
+fi
+

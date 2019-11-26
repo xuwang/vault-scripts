@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 # MIT License
 # 
@@ -21,56 +21,44 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-# Usage:
-#   vault-list-users.sh [<userid>]
+
+###############################################################################
+# login to vault
+###############################################################################
+
+THIS_DIR=$(dirname "$0")
 
 # include functions
-THIS_DIR=$(dirname "$0")
 source $THIS_DIR/functions.sh
 
-user=$1
-tmpfile=$(mktemp)
+trap_errors
 
-function list_aliases() {
-  vault list -format json  identity/entity-alias/id  | jq -r '.[]' > $tmpfile
-}
+set +u # optional vars
+export VAULT_AUTH_PATH=${VAULT_AUTH_PATH:-ldap}
+export VAULT_AUTH_METHOD=${VAULT_AUTH_METHOD:-ldap}
+export VAULT_USER=${VAULT_USER:-$USER}
+export VAULT_ROLE_ID=${VAULT_ROLE_ID}
+set -u
+export VAULT_ADDR=${VAULT_ADDR}
 
-function list_all_users() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | jq -r '.data.name'
-  done
-}
+echo "VAULT SERVER: $VAULT_ADDR"
 
-function get_user() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | \
-        jq -r ".data | select(.name==\"$user\")" > $tmpfile.$user
-    if [ -s "$tmpfile.$user" ]; then
-      cat $tmpfile.$user
-      break
+if ! [ -z $VAULT_ROLE_ID ]; then
+    echo "attempting to login in w/ approle provided in env vars VAULT_ROLE_ID & VAULT_SECRET_ID"
+    vault write -format json auth/approle/login \
+        role_id=$VAULT_ROLE_ID \
+        secret_id=$VAULT_SECRET_ID \
+        | jq -er .auth.client_token > ~/.vault-token
+fi
+
+if ! vault token lookup > /dev/null 2>&1; then
+    if ! [ -z $VAULT_ROLE_ID ]; then
+        >&2 "ERROR: VAULT_TOKEN does not exist or is not valid" && false
     fi
-  done
-}
 
-# MAIN
-
-if vault token lookup > /dev/null 2>&1 ; then
-  admin=$(vault token lookup -format=json | jq -r '.data.display_name')
-  echo "Using $admin token to lookup vault users."
-else 
-  echo "Valid vault token is required. Please run vault login."
-  exit 1
-fi
-
-list_aliases
-
-if [ ! -z "$user" ]; then
-  get_user
+    echo "Please login VAULT as vault user ${VAULT_USER} with DUO device ready:"
+    vault login -method=${VAULT_AUTH_METHOD} -path=${VAULT_AUTH_PATH} username=${VAULT_USER}
 else
-  list_all_users
+    echo "You are logged in VAULT" 
 fi
 
-rm -rf $tmpfile $tmpfile.$user
- 

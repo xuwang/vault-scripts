@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 # MIT License
 # 
@@ -21,56 +21,41 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+#
 # Usage:
-#   vault-list-users.sh [<userid>]
+#   vault-read <path>
+#
+# Assumption: a secret object has two field: format and value.
+# "format" can be text or base64, "value" is the actual data.
+# The code will output value either in text or base64 decoded value.
 
-# include functions
 THIS_DIR=$(dirname "$0")
-source $THIS_DIR/functions.sh
 
-user=$1
-tmpfile=$(mktemp)
+set -u
+VAULT_ADDR=${VAULT_ADDR}
+path=$1
 
-function list_aliases() {
-  vault list -format json  identity/entity-alias/id  | jq -r '.[]' > $tmpfile
-}
-
-function list_all_users() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | jq -r '.data.name'
-  done
-}
-
-function get_user() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | \
-        jq -r ".data | select(.name==\"$user\")" > $tmpfile.$user
-    if [ -s "$tmpfile.$user" ]; then
-      cat $tmpfile.$user
-      break
-    fi
-  done
-}
-
-# MAIN
-
-if vault token lookup > /dev/null 2>&1 ; then
-  admin=$(vault token lookup -format=json | jq -r '.data.display_name')
-  echo "Using $admin token to lookup vault users."
-else 
-  echo "Valid vault token is required. Please run vault login."
-  exit 1
+if ! vault --version | grep 'v1.' &> /dev/null
+then
+    (>&2 echo "The vault version is too old, please upgrade the vault cmd.")
+    exit 1
 fi
 
-list_aliases
+# Get the kv sec from $path in json
+j=$(vault kv get -format=json $path)
 
-if [ ! -z "$user" ]; then
-  get_user
+return_code=$?
+if [ "$return_code" -ne "0" ]; then
+    exit $return_code
+fi
+
+f=$(echo "$j" | jq -r '.data.format//.data.data.format' 2> /dev/null)
+v=$(echo "$j" | jq -r '.data.value//.data.data.value')
+
+# if value format is base64, decode it
+if [ "base64" == "$f" ]
+then
+    echo -n "$v" | base64 --decode
 else
-  list_all_users
+    echo -n "$v"
 fi
-
-rm -rf $tmpfile $tmpfile.$user
- 

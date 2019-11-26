@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 # MIT License
 # 
@@ -21,56 +21,22 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+# Get the secret wrapped by a vault token
 # Usage:
-#   vault-list-users.sh [<userid>]
+#   vault-unwrap.sh <wrap_token> <options>
 
-# include functions
-THIS_DIR=$(dirname "$0")
-source $THIS_DIR/functions.sh
-
-user=$1
-tmpfile=$(mktemp)
-
-function list_aliases() {
-  vault list -format json  identity/entity-alias/id  | jq -r '.[]' > $tmpfile
-}
-
-function list_all_users() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | jq -r '.data.name'
-  done
-}
-
-function get_user() {
-  for i in `cat $tmpfile`
-  do
-    vault read -format=json identity/entity-alias/id/$i  | \
-        jq -r ".data | select(.name==\"$user\")" > $tmpfile.$user
-    if [ -s "$tmpfile.$user" ]; then
-      cat $tmpfile.$user
-      break
-    fi
-  done
-}
-
-# MAIN
-
-if vault token lookup > /dev/null 2>&1 ; then
-  admin=$(vault token lookup -format=json | jq -r '.data.display_name')
-  echo "Using $admin token to lookup vault users."
-else 
-  echo "Valid vault token is required. Please run vault login."
-  exit 1
+if ! which vault > /dev/null
+then 
+    echo vault cli is missing, please install it from https://www.vaultproject.io/downloads.html
+    exit 1
 fi
 
-list_aliases
+set -u
+VAULT_ADDR=${VAULT_ADDR}
+VAULT_TOKEN=$1
 
-if [ ! -z "$user" ]; then
-  get_user
-else
-  list_all_users
-fi
+shift
+vault unwrap $@
 
-rm -rf $tmpfile $tmpfile.$user
- 
+# api version
+# curl -sSL --header "X-Vault-Token: $VAULT_TOKEN" --request POST $VAULT_ADDR/v1/sys/wrapping/unwrap
