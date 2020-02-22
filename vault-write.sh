@@ -29,22 +29,23 @@
 # base64 encode it and store in vault in "value" field.
 #
 # See vault-read.sh to read back data. 
- 
-THIS_DIR=$(dirname "$0")
 
-set -u
-VAULT_ADDR=${VAULT_ADDR:-https}
-path="$1"
-input="$2"
+#!/bin/bash
+#
+# Usage: vault-write <path> ["secret strings>" | @<secret file>]
 
-if ! vault --version | grep 'v1.' &> /dev/null
-then
-    (>&2 echo "The vault version is too old, please upgrade the vault cmd.")
+SCRIPT_NAME=$(basename "$0")
+
+VAULT_ADDR=${VAULT_ADDR:-https://vault.example.com}
+
+if [ "$#" != "2" ]; then
+    echo usage "$SCRIPT_NAME: <path> [\"<secret strings>\" | @<secret file>]"
     exit 1
 fi
 
+path=$1
 
-if [[ "$input" =~ ^@ ]];
+if [[ "$2" =~ ^@ ]];
 then
     # if the data is in a file
     src=$(echo $2 | cut -c 2-)

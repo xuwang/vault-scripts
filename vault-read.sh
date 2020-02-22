@@ -25,32 +25,28 @@
 # Usage:
 #   vault-read <path>
 #
-# Assumption: a secret object has two field: format and value.
+# Assumption: a secret object has two fields: format and value.
 # "format" can be text or base64, "value" is the actual data.
 # The code will output value either in text or base64 decoded value.
 
-THIS_DIR=$(dirname "$0")
+SCRIPT_NAME=$(basename "$0")
+if [ "$#" != "1" ]; then
+    echo usage "$SCRIPT_NAME: <secret-path>"
+    exit 1
+else
+    path=$1
+fi
 
-set -u
-VAULT_ADDR=${VAULT_ADDR}
-path=$1
+VAULT_ADDR=${VAULT_ADDR:-https://vault.example.com}
 
-if ! vault --version | grep 'v1.' &> /dev/null
-then
-    (>&2 echo "The vault version is too old, please upgrade the vault cmd.")
+# Get the kv secret from path in json
+data=$(vault kv get -format=json $path)
+if [ "$?" != "0" ]; then
     exit 1
 fi
 
-# Get the kv sec from $path in json
-j=$(vault kv get -format=json $path)
-
-return_code=$?
-if [ "$return_code" -ne "0" ]; then
-    exit $return_code
-fi
-
-f=$(echo "$j" | jq -r '.data.format//.data.data.format' 2> /dev/null)
-v=$(echo "$j" | jq -r '.data.value//.data.data.value')
+f=$(echo "$data" | jq -r '.data.format//.data.data.format' 2> /dev/null)
+v=$(echo "$data" | jq -r '.data.value//.data.data.value')
 
 # if value format is base64, decode it
 if [ "base64" == "$f" ]
