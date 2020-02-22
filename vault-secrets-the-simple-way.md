@@ -6,7 +6,7 @@ This article introduces a simple way of working with [Hashicorp Vault](https://g
 
 You should have a running Hashicorp/Vault service and [Vault](https://www.vaultproject.io/downloads/) command available.
 
-Here is a quick way to install a [Vault dev server](https://learn.hashicorp.com/vault/getting-started/dev-server)
+Here is a quick way to install a [Vault dev server](https://learn.hashicorp.com/vault/getting-started/dev-server).
 
 ## Challenge
 
@@ -85,7 +85,7 @@ the same field can be used to get the content of a secret, or to test the type o
 
 In our environment, we require all secrets contain two *key=value* fields, namely:
 
-* **format**: this indicates the type of data. Can be "text" or "base64"
+* **format**: this indicates the type of data. Can be "text" or "base64".
 * **value**: this is the actual secret content. Can be quoted strings, a text file, or a binary file.
 
 Using this convention, let's put a second version of the *test-me* secret with content from a json file */tmp/my-secret.json*:
