@@ -53,7 +53,7 @@ an authentication app may use *login=\<user\> password=\<password\>*, or another
 In addition to all kinds of input fields, for binary data, you need to base64-encode secret first before putting it in Vault, and base64-decode it after reading
 back from Vault.
 
-This presents a challenge in a team environment that secrets are treated like pets, handled differently by developing different tools that need to know how the data is put into Vault.
+This presents a challenge in a team environment that secrets are treated like pets, handled differently by different tools that need to know how the data is put into Vault.
 
 For example, for the *username=me password=changeme* secret we added, we can get value back with *-field=username and -field=password*:
 
@@ -244,6 +244,6 @@ No value found at secret/data/test-me
 
 We defined a convention so that all vault secret objects have two common fields: **format=[text|base64]** and **value=[strings|@file]**.
  
-Now We can get any secret's content by **value** field, and use the content of **format** field to decide if we need to run base64 decode.
+Now we can get any secret's content by **value** field, and use the content of **format** field to decide if we need to run base64 decode.
 
-We can also introduced simple [vault-read.sh](./vault-read.sh) and [vault-write.sh](./vault-write.sh) scripts which not only make it easy for operators and applications alike to store and get secrets from vault with auto-type detecting, base64-encoding and base64-decoding, but also help us to enforce the field naming convention.
+We also introduced simple [vault-read.sh](./vault-read.sh) and [vault-write.sh](./vault-write.sh) scripts which not only make it easy for operators and applications alike to store and get secrets from vault with auto-type detecting, base64-encoding and base64-decoding, but also help us to enforce the field naming convention.
